@@ -1,0 +1,110 @@
+name: 'Slack Alert'
+description: 'Send slack alert'
+
+inputs:
+  channel_id:
+    description: channel of slack
+    required: true
+  thread_id:
+    description: thread id to append this message to
+    required: false
+  slack_token:
+    description: token for connecting to slack
+    required: true
+  title:
+    description: title
+    required: true
+    default: "Alert"
+  message:
+    description: message
+    required: false
+  message_type:
+    description: allowed values are success, warning, error, info
+    default: 'info'
+
+outputs:
+  ts:
+    description: "Slack thread id"
+    value: ${{ steps.slack.outputs.update-ts }}
+
+runs:
+  using: composite
+  steps:
+  - name: Prepare vars
+    id: vars
+    shell: bash
+    run: |
+      if [ ${{ inputs.message_type }} == "error" ]; then
+        echo "color=e01e5a" >> $GITHUB_OUTPUT
+        echo "emoji=:rotating_light:" >> $GITHUB_OUTPUT
+      elif [ ${{ inputs.message_type }} == "success" ]; then
+        echo "color=28a745" >> $GITHUB_OUTPUT
+        echo "emoji=:white_check_mark:" >> $GITHUB_OUTPUT
+      else
+        echo "color=ffd57e" >> $GITHUB_OUTPUT
+        echo "emoji=:information_source:" >> $GITHUB_OUTPUT
+      fi
+      echo "repo_name=$(basename ${{ github.repository }})" >> $GITHUB_OUTPUT
+
+  - name: Notify
+    id: slack
+    uses: slackapi/slack-github-action@v1.26.0
+    env:
+      SLACK_BOT_TOKEN: ${{ inputs.slack_token }}
+    with:
+      channel-id: "${{ inputs.channel_id }}"
+      update-ts: "${{ inputs.thread_id }}"
+      payload: |
+        {
+          "text": "${{ steps.vars.outputs.emoji }} ${{ inputs.title }} for ${{ steps.vars.outputs.repo_name }}",
+          "attachments": [
+            {
+              "color": "${{ steps.vars.outputs.color }}",
+              "blocks": [
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ inputs.message }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Goto Repository",
+                        "emoji": true
+                      },
+                      "url": "${{ github.event.repository.html_url }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Goto Workflow",
+                        "emoji": true
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Deployments",
+                        "emoji": true
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/deployments"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+            
