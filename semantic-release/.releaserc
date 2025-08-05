@@ -1,6 +1,7 @@
 {
   "branches": [
-    "main", "next-v2",
+    "main",
+    "next-v2",
     {
       "name": "ci",
       "prerelease": true
